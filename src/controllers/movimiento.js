@@ -10,7 +10,6 @@ module.exports = (connection) => {
                 res.status(500).json({ message: 'Error' });
             }
         },
-
         consultarId: async (req, res) => {
             const { id } = req.params;
 
