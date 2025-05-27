@@ -195,153 +195,183 @@ module.exports = (connection) => {
         },
 
         actualizarPromocion: async (req, res) => {
-            const promocionId = req.params.id;
-            const {
-                empresa_idempresa, categoria_idcategoria, nombre, descripcion, precio, vigenciainicio, vigenciafin, tipo, imagenes_a_eliminar
-            } = req.body;
+    const promocionId = req.params.id;
+    
+    // Verificar que req.body existe antes de hacer destructuring
+    if (!req.body) {
+        return res.status(400).json({ 
+            message: 'No se recibieron datos en el cuerpo de la petición' 
+        });
+    }
+
+    const {
+        empresa_idempresa, 
+        categoria_idcategoria, 
+        nombre, 
+        descripcion, 
+        precio, 
+        vigenciainicio, 
+        vigenciafin, 
+        tipo, 
+        imagenes_a_eliminar
+    } = req.body;
+
+    try {
+        // Verificar que la promoción existe
+        const [promocionExistente] = await connection.promise().query(
+            'SELECT * FROM promocion WHERE idpromocion = ? AND eliminado = 0',
+            [promocionId]
+        );
+
+        if (promocionExistente.length === 0) {
+            return res.status(404).json({ message: 'Promoción no encontrada' });
+        }
+
+        // Validar empresa si se proporciona
+        if (empresa_idempresa) {
+            const [empresaResult] = await connection.promise().query(
+                'SELECT idempresa FROM empresa WHERE idempresa = ?',
+                [empresa_idempresa]
+            );
+            if (empresaResult.length === 0) {
+                return res.status(400).json({ message: 'La empresa especificada no existe' });
+            }
+        }
+
+        // Validar categoría si se proporciona
+        if (categoria_idcategoria) {
+            const [categoriaResult] = await connection.promise().query(
+                'SELECT idcategoria FROM categoria WHERE idcategoria = ?',
+                [categoria_idcategoria]
+            );
+            if (categoriaResult.length === 0) {
+                return res.status(400).json({ message: 'La categoría especificada no existe' });
+            }
+        }
+
+        // Construir la query de actualización dinámicamente
+        const updateFields = [];
+        const updateValues = [];
+
+        if (empresa_idempresa !== undefined) {
+            updateFields.push('empresa_idempresa = ?');
+            updateValues.push(empresa_idempresa);
+        }
+        if (categoria_idcategoria !== undefined) {
+            updateFields.push('categoria_idcategoria = ?');
+            updateValues.push(categoria_idcategoria);
+        }
+        if (nombre !== undefined) {
+            updateFields.push('nombre = ?');
+            updateValues.push(nombre);
+        }
+        if (descripcion !== undefined) {
+            updateFields.push('descripcion = ?');
+            updateValues.push(descripcion);
+        }
+        if (precio !== undefined) {
+            updateFields.push('precio = ?');
+            updateValues.push(precio);
+        }
+        if (vigenciainicio !== undefined) {
+            updateFields.push('vigenciainicio = ?');
+            updateValues.push(vigenciainicio);
+        }
+        if (vigenciafin !== undefined) {
+            updateFields.push('vigenciafin = ?');
+            updateValues.push(vigenciafin);
+        }
+        if (tipo !== undefined) {
+            updateFields.push('tipo = ?');
+            updateValues.push(tipo);
+        }
+
+        // Actualizar promoción si hay campos para actualizar
+        if (updateFields.length > 0) {
+            updateValues.push(promocionId);
+            
+            await connection.promise().query(
+                `UPDATE promocion SET ${updateFields.join(', ')} WHERE idpromocion = ?`,
+                updateValues
+            );
+        }
+
+        // Eliminar imágenes si se especifican
+        if (imagenes_a_eliminar && Array.isArray(imagenes_a_eliminar) && imagenes_a_eliminar.length > 0) {
+            const deletePromises = imagenes_a_eliminar.map(async (public_id) => {
+                try {
+                    // Eliminar de Cloudinary
+                    await cloudinary.uploader.destroy(public_id);
+                    
+                    // Eliminar de la base de datos
+                    await connection.promise().query(
+                        'DELETE FROM imagen WHERE public_id = ? AND promocion_idpromocion = ?',
+                        [public_id, promocionId]
+                    );
+                } catch (error) {
+                    console.error(`Error al eliminar imagen ${public_id}:`, error);
+                    // No lanzamos el error para que no interrumpa el proceso completo
+                }
+            });
+
+            await Promise.all(deletePromises);
+        }
+
+        // Subir nuevas imágenes si existen
+        if (req.files && req.files.length > 0) {
+            const uploadPromises = req.files.map((file) => {
+                return new Promise((resolve, reject) => {
+                    const uploadStream = cloudinary.uploader.upload_stream(
+                        {
+                            resource_type: "image",
+                            format: "webp",
+                            transformation: { width: 600, height: 450, crop: "limit" }
+                        },
+                        (error, result) => {
+                            if (error) {
+                                reject(error);
+                            } else {
+                                resolve(result);
+                            }
+                        }
+                    );
+                    uploadStream.end(file.buffer);
+                });
+            });
 
             try {
+                const imageResults = await Promise.all(uploadPromises);
 
-                const [promocionExistente] = await connection.promise().query(
-                    'SELECT * FROM promocion WHERE idpromocion = ? AND eliminado = 0',
-                    [promocionId]
-                );
-
-                if (promocionExistente.length === 0) {
-                    return res.status(404).json({ message: 'Promoción no encontrada' });
-                }
-
-
-                if (empresa_idempresa) {
-                    const [empresaResult] = await connection.promise().query(
-                        'SELECT idempresa FROM empresa WHERE idempresa = ?',
-                        [empresa_idempresa]
+                const insertPromises = imageResults.map((image) => {
+                    return connection.promise().query(
+                        "INSERT INTO imagen (url, public_id, promocion_idpromocion) VALUES (?, ?, ?)",
+                        [image.secure_url, image.public_id, promocionId]
                     );
-                    if (empresaResult.length === 0) {
-                        return res.status(400).json({ message: 'La empresa especificada no existe' });
-                    }
-                }
+                });
 
-
-                if (categoria_idcategoria) {
-                    const [categoriaResult] = await connection.promise().query(
-                        'SELECT idcategoria FROM categoria WHERE idcategoria = ?',
-                        [categoria_idcategoria]
-                    );
-                    if (categoriaResult.length === 0) {
-                        return res.status(400).json({ message: 'La categoría especificada no existe' });
-                    }
-                }
-
-
-                const updateFields = {};
-                const updateValues = [];
-
-                if (empresa_idempresa) {
-                    updateFields.empresa_idempresa = empresa_idempresa;
-                    updateValues.push(empresa_idempresa);
-                }
-                if (categoria_idcategoria) {
-                    updateFields.categoria_idcategoria = categoria_idcategoria;
-                    updateValues.push(categoria_idcategoria);
-                }
-                if (nombre) {
-                    updateFields.nombre = nombre;
-                    updateValues.push(nombre);
-                }
-                if (descripcion) {
-                    updateFields.descripcion = descripcion;
-                    updateValues.push(descripcion);
-                }
-                if (precio) {
-                    updateFields.precio = precio;
-                    updateValues.push(precio);
-                }
-                if (vigenciainicio) {
-                    updateFields.vigenciainicio = vigenciainicio;
-                    updateValues.push(vigenciainicio);
-                }
-                if (vigenciafin) {
-                    updateFields.vigenciafin = vigenciafin;
-                    updateValues.push(vigenciafin);
-                }
-                if (tipo) {
-                    updateFields.tipo = tipo;
-                    updateValues.push(tipo);
-                }
-
-                if (Object.keys(updateFields).length > 0) {
-                    const setClause = Object.keys(updateFields).map(key => `${key} = ?`).join(', ');
-                    updateValues.push(promocionId);
-
-                    await connection.promise().query(
-                        `UPDATE promocion SET ${setClause} WHERE idpromocion = ?`,
-                        updateValues
-                    );
-                }
-
-
-                if (imagenes_a_eliminar && imagenes_a_eliminar.length > 0) {
-
-                    const deletePromises = imagenes_a_eliminar.map(async (public_id) => {
-                        try {
-
-                            await cloudinary.uploader.destroy(public_id);
-
-
-                            await connection.promise().query(
-                                'DELETE FROM imagen WHERE public_id = ? AND promocion_idpromocion = ?',
-                                [public_id, promocionId]
-                            );
-                        } catch (error) {
-                            console.error(`Error al eliminar imagen ${public_id}:`, error);
-
-                        }
-                    });
-
-                    await Promise.all(deletePromises);
-                }
-
-
-                if (req.files && req.files.length > 0) {
-                    const uploadPromises = req.files.map((file) => {
-                        return new Promise((resolve, reject) => {
-                            const uploadStream = cloudinary.uploader.upload_stream(
-                                {
-                                    resource_type: "image",
-                                    format: "webp",
-                                    transformation: { width: 600, height: 450, crop: "limit" }
-                                },
-                                (error, result) => {
-                                    if (error) {
-                                        reject(error);
-                                    } else {
-                                        resolve(result);
-                                    }
-                                }
-                            );
-                            uploadStream.end(file.buffer);
-                        });
-                    });
-
-                    const imageResults = await Promise.all(uploadPromises);
-
-                    const insertPromises = imageResults.map((image) => {
-                        return connection.promise().query(
-                            "INSERT INTO imagen (url, public_id, promocion_idpromocion) VALUES (?, ?, ?)",
-                            [image.secure_url, image.public_id, promocionId]
-                        );
-                    });
-
-                    await Promise.all(insertPromises);
-                }
-
-                res.status(200).json({ message: 'Promoción actualizada exitosamente', promocionId });
-            } catch (error) {
-                console.error('Error al actualizar promoción:', error);
-                res.status(500).json({ message: 'Error al actualizar promoción' });
+                await Promise.all(insertPromises);
+            } catch (uploadError) {
+                console.error('Error al subir imágenes:', uploadError);
+                return res.status(500).json({ 
+                    message: 'Error al subir las nuevas imágenes', 
+                    error: uploadError.message 
+                });
             }
-        },
+        }
+
+        res.status(200).json({ 
+            message: 'Promoción actualizada exitosamente', 
+            promocionId: parseInt(promocionId)
+        });
+
+    } catch (error) {
+        console.error('Error al actualizar promoción:', error);
+        res.status(500).json({ 
+            message: 'Error interno del servidor al actualizar promoción',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
+},
 
         eliminarPromocion: async (req, res) => {
             const { id } = req.params;
