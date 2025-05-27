@@ -197,7 +197,7 @@ module.exports = (connection) => {
         actualizarPromocion: async (req, res) => {
     const promocionId = req.params.id;
     
-    // Verificar que req.body existe antes de hacer destructuring
+    
     if (!req.body) {
         return res.status(400).json({ 
             message: 'No se recibieron datos en el cuerpo de la petición' 
@@ -217,7 +217,7 @@ module.exports = (connection) => {
     } = req.body;
 
     try {
-        // Verificar que la promoción existe
+        
         const [promocionExistente] = await connection.promise().query(
             'SELECT * FROM promocion WHERE idpromocion = ? AND eliminado = 0',
             [promocionId]
@@ -227,7 +227,7 @@ module.exports = (connection) => {
             return res.status(404).json({ message: 'Promoción no encontrada' });
         }
 
-        // Validar empresa si se proporciona
+        
         if (empresa_idempresa) {
             const [empresaResult] = await connection.promise().query(
                 'SELECT idempresa FROM empresa WHERE idempresa = ?',
@@ -238,7 +238,7 @@ module.exports = (connection) => {
             }
         }
 
-        // Validar categoría si se proporciona
+    
         if (categoria_idcategoria) {
             const [categoriaResult] = await connection.promise().query(
                 'SELECT idcategoria FROM categoria WHERE idcategoria = ?',
@@ -286,7 +286,7 @@ module.exports = (connection) => {
             updateValues.push(tipo);
         }
 
-        // Actualizar promoción si hay campos para actualizar
+
         if (updateFields.length > 0) {
             updateValues.push(promocionId);
             
@@ -310,14 +310,12 @@ module.exports = (connection) => {
                     );
                 } catch (error) {
                     console.error(`Error al eliminar imagen ${public_id}:`, error);
-                    // No lanzamos el error para que no interrumpa el proceso completo
                 }
             });
 
             await Promise.all(deletePromises);
         }
 
-        // Subir nuevas imágenes si existen
         if (req.files && req.files.length > 0) {
             const uploadPromises = req.files.map((file) => {
                 return new Promise((resolve, reject) => {
