@@ -37,7 +37,7 @@ module.exports = (connection) => {
             const { nombre, idcreador } = req.body;
 
             try {
-                const valoresPermitidos = ['Crear', 'Consultar', 'Actualizar', 'Eliminar'];
+                const valoresPermitidos = ['Crear', 'Consultar', 'Actualizar', 'Eliminar','Consultar propios', 'Actualizarpropios'];
                 if (!valoresPermitidos.includes(nombre)) {
                     return res.status(400).json({ message: 'Valor de nombre no válido' });
                 }
