@@ -249,7 +249,6 @@ module.exports = (connection) => {
             }
         }
 
-        // Construir la query de actualización dinámicamente
         const updateFields = [];
         const updateValues = [];
 
@@ -296,14 +295,11 @@ module.exports = (connection) => {
             );
         }
 
-        // Eliminar imágenes si se especifican
         if (imagenes_a_eliminar && Array.isArray(imagenes_a_eliminar) && imagenes_a_eliminar.length > 0) {
             const deletePromises = imagenes_a_eliminar.map(async (public_id) => {
                 try {
-                    // Eliminar de Cloudinary
                     await cloudinary.uploader.destroy(public_id);
                     
-                    // Eliminar de la base de datos
                     await connection.promise().query(
                         'DELETE FROM imagen WHERE public_id = ? AND promocion_idpromocion = ?',
                         [public_id, promocionId]
