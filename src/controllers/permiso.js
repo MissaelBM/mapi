@@ -36,6 +36,7 @@ module.exports = (connection) => {
         permiso: async (req, res) => {
             const { nombre, idcreador } = req.body;
 
+        
             try {
                 const valoresPermitidos = ['Crear', 'Consultar', 'Actualizar', 'Eliminar','Consultar propios', 'Actualizarpropios'];
                 if (!valoresPermitidos.includes(nombre)) {
