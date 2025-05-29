@@ -819,7 +819,7 @@ module.exports = (connection) => {
         const expires = new Date(Date.now() + 1 * 60 * 60 * 1000);
 
         await connection.promise().query(
-          'INSERT INTO password_reset (usuario_idusuario, token, fechaexpiracion) VALUES (?, ?, ?)',
+          'INSERT INTO tokenpassword (usuario_idusuario, token, fechaexpiracion) VALUES (?, ?, ?)',
           [users[0].idusuario, token, expires]
         );
 
