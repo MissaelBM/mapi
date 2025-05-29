@@ -16,7 +16,7 @@ module.exports = (connection) => {
 
         const [result] = await connection.promise().query(
           'INSERT INTO categoria (nombre, idcreador, idactualizacion, fechacreacion, fechaactualizacion, eliminado) VALUES (?, ?, ?, ?, ?, ?)',
-          [nombre, idcreador, null, new Date(), null,, 0]
+          [nombre, idcreador, null, new Date(), null, 0]
         );
 
         res.status(201).json({ message: 'Categoria registrada', categoriaId: result.insertId });
