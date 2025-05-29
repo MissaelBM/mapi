@@ -109,15 +109,15 @@ module.exports = (connection) => {
         try {
   
           const [result] = await connection.promise().query(
-            'UPDATE listadecategoria SET eliminado = ? WHERE idlistadecategoria = ?',
+            'UPDATE favorito SET eliminado = ? WHERE favorito = ?',
             [1, id]
           );
   
           if (result.affectedRows === 0) {
-            return res.status(404).json({ message: 'listadecategoria no encontrada' });
+            return res.status(404).json({ message: 'favorito no encontrado' });
           }
   
-          res.status(200).json({ message: 'listadecategoria eliminada' });
+          res.status(200).json({ message: 'favorito eliminado' });
         } catch (error) {
           console.error('Error:', error);
           res.status(500).json({ message: 'Error' });
