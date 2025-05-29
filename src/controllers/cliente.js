@@ -3,7 +3,7 @@ module.exports = (connection) => {
         consultar: async (req, res) => {
             try {
                 
-                const [rows] = await connection.promise().query('SELECT * FROM cliente WHERE eliminado = ?', [1]);
+                const [rows] = await connection.promise().query('SELECT * FROM cliente WHERE eliminado = ?', [0]);
                 res.status(200).json(rows);
             } catch (error) {
                 console.error('Error:', error);
