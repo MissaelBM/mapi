@@ -109,7 +109,7 @@ module.exports = (connection) => {
         try {
   
           const [result] = await connection.promise().query(
-            'UPDATE favorito SET eliminado = ? WHERE favorito = ?',
+            'UPDATE favorito SET eliminado = ? WHERE idfavorito = ?',
             [1, id]
           );
   
