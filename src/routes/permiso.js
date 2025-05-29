@@ -7,10 +7,10 @@ module.exports = (connection) => {
   const controller = permisoController(connection);
 
   router.post('/permiso', controller.permiso);
-  router.get('/permiso',authenticateToken(['Administrador']), controller.consultar);
+  router.get('/permiso', controller.consultar);
   router.get('/permiso/:idpermiso', controller.consultarId);
   router.patch('/permiso/:idpermiso', controller.actualizarPermiso);
-  router.delete('/permiso/:idpermiso',authenticateToken(['Administrador']), controller.eliminarPermiso);
+  router.delete('/permiso/:idpermiso', controller.eliminarPermiso);
 
   return router;
 };

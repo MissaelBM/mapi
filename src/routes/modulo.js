@@ -7,10 +7,10 @@ module.exports = (connection) => {
   const controller = moduloController(connection);
 
   router.post('/modulo', controller.modulo);
-  router.get('/modulo',authenticateToken(['Administrador']), controller.consultar);
+  router.get('/modulo', controller.consultar);
   router.get('/modulo/:id', controller.consultarId);
   router.patch('/modulo/:id', controller.actualizarModulo);
-  router.delete('/modulo/:id',authenticateToken(['Administrador']), controller.eliminarModulo); 
+  router.delete('/modulo/:id', controller.eliminarModulo); 
 
   return router;
 };

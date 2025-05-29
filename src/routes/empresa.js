@@ -10,7 +10,7 @@ module.exports = (connection) => {
   router.get('/empresa', controller.consultar);
   router.get('/empresa/:id', controller.consultarId);
   router.patch('/empresa/:id', controller.actualizarEmpresa);
-  router.delete('/empresa/:id',authenticateToken(['Administrador']), controller.eliminarEmpresa);
+  router.delete('/empresa/:id', controller.eliminarEmpresa);
 
   return router;
 };
