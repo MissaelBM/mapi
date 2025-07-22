@@ -147,7 +147,7 @@ if (isNaN(idusuario)) {
     );
 
     if (favoritos.length === 0) {
-      res.status(200).json(favoritos);
+      return res.status(200).json(favoritos);
     }
 
     const [tokens] = await connection.promise().query(
