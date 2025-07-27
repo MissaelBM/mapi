@@ -50,6 +50,50 @@ module.exports = (connection) => {
                 res.status(500).json({ message: 'Error al consultar promociones' });
             }
         },
+        promocionPremium: async (req, res) => {
+            try {
+
+                const [promociones] = await connection.promise().query(
+                    `SELECT p.empresa_idempresa, 
+                    p.categoria_idcategoria, 
+                    p.nombre,
+                    p.descripcion,
+                    p.precio,
+                    p.vigenciainicio, 
+                    p.vigenciafin, 
+                    p.tipo FROM promocion AS p INNER JOIN empresa AS e ON p.empresa_idempresa = e.idempresa INNER JOIN usuario AS u ON e.usuario_idusuario = u.idusuario WHERE u.tipodeplan = 'Premium'`
+                );
+
+
+                if (promociones.length === 0) {
+                    return res.status(404).json({ message: 'No se encontraron promociones' });
+                }
+
+
+                const promocionesConImagenes = await Promise.all(
+                    promociones.map(async (promocion) => {
+                        const [imagenes] = await connection.promise().query(
+                            'SELECT idimagen, url, public_id FROM imagen WHERE promocion_idpromocion = ?',
+                            [promocion.idpromocion]
+                        );
+                        return {
+                            ...promocion,
+                            imagenes: imagenes.map(img => ({
+                                id: img.idimagen,
+                                url: img.url,
+                                public_id: img.public_id
+                            }))
+                        };
+                    })
+                );
+
+                res.status(200).json(promocionesConImagenes);
+            } catch (error) {
+                console.error('Error al consultar promociones:', error);
+                res.status(500).json({ message: 'Error al consultar promociones' });
+            }
+        }
+        ,
 
         consultarId: async (req, res) => {
             const { id } = req.params;

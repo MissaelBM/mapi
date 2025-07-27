@@ -26,6 +26,8 @@ module.exports = (connection) => {
   router.delete('/usuario/superusuario/:id', authenticateToken(['Superusuario']), controller.eliminarsuperusuario); 
   router.post('/usuario/superusuario', authenticateToken(['Superusuario']), controller.superusuario); 
   router.patch('/usuario/superusuario/:id', authenticateToken(['Superusuario']), controller.eliminarsuperusuario); 
-  router.get('/usuario/confirmarUsuario/:token', controller.confirmarUsuario)
+  router.get('/usuario/confirmarUsuario/:token', controller.confirmarUsuario);
+  router.patch('/usuario/premium/:id', controller.cambiarTipoDePlan);
+
   return router;
 };
