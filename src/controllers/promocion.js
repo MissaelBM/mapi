@@ -61,7 +61,7 @@ module.exports = (connection) => {
                     p.precio,
                     p.vigenciainicio, 
                     p.vigenciafin, 
-                    p.tipo FROM promocion AS p INNER JOIN empresa AS e ON p.empresa_idempresa = e.idempresa INNER JOIN usuario AS u ON e.usuario_idusuario = u.idusuario WHERE u.tipodeplan = 'Premium'`
+                    p.tipo FROM promocion AS p INNER JOIN empresa AS e ON p.empresa_idempresa = e.idempresa INNER JOIN matriz AS m ON e.matriz_idmatriz = m.idmatriz INNER JOIN usuario AS u ON m.usuario_idusuario = u.idusuario WHERE u.tipodeplan = 'Premium'`
                 );
 
 
