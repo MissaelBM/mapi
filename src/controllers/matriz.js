@@ -30,21 +30,28 @@ module.exports = (connection) => {
       },
 
       crearmatriz: async (req, res) => {
-        const {nombre, ubicacion, telefono, email } = req.body;
+        const {usuario_idusuario, nombre, ubicacion, telefono, email } = req.body;
     
         try {
 
-           
+            const [usuarioResult] = await connection.promise().query(
+          'SELECT idusuario FROM usuario WHERE idusuario = ?',
+          [usuario_idusuario]
+        );
+
+        if (usuarioResult.length === 0) {
+          return res.status(400).json({ message: 'El usuario especificado no existe' });
+        }
             const { lat, lng } = ubicacion;      
             const pointWKT = `POINT(${lng} ${lat})`;
     
       
             const [result] = await connection.promise().query(
-              'INSERT INTO matriz (nombre, ubicacion, telefono, email,eliminado) VALUES (?, ST_GeomFromText(?), ?, ?, ?)',
-              [ nombre, pointWKT, telefono, email,  0]
+              'INSERT INTO matriz (usuario_idusuario, nombre, ubicacion, telefono, email,eliminado) VALUES (?, ?, ST_GeomFromText(?), ?, ?, ?)',
+              [usuario_idusuario, nombre, pointWKT, telefono, email,  0]
           );
     
-            res.status(201).json({ message: 'Matriz registrada', idmatriz: result.insertId });
+            res.status(201).json({ message: 'Matriz de empresa registrada', idmatriz: result.insertId });
         } catch (error) {
             console.error('Error al registrar matriz:', error);
             res.status(500).json({ message: 'Error al registrar matriz' });
@@ -54,12 +61,17 @@ module.exports = (connection) => {
 
       actualizarMatriz: async (req, res) => {
         const { id } = req.params;
-        const { idmatriz, nombre, ubicacion, telefono, email } = req.body;
+        const {  usuario_idusuario, idmatriz, nombre, ubicacion, telefono, email } = req.body;
   
         try {
           let query = 'UPDATE matriz SET ';
           const updates = [];
           const params = [];
+
+          if (usuario_idusuario) {
+          updates.push('usuario_idusuario = ?');
+          params.push(usuario_idusuario);
+        }
   
           if (idmatriz) {
             updates.push('idmatriz = ?');

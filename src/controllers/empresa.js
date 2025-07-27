@@ -30,18 +30,10 @@ module.exports = (connection) => {
       }
     },
     empresa: async (req, res) => {
-      const { usuario_idusuario,matriz_idmatriz, nombre, descripcion, ubicacion } = req.body;
+      const {matriz_idmatriz, nombre, descripcion, ubicacion } = req.body;
 
       try {
-        const [usuarioResult] = await connection.promise().query(
-          'SELECT idusuario FROM usuario WHERE idusuario = ?',
-          [usuario_idusuario]
-        );
-
-        if (usuarioResult.length === 0) {
-          return res.status(400).json({ message: 'El usuario especificado no existe' });
-        }
-
+       
         const [matrizResult] = await connection.promise().query(
           'SELECT idmatriz FROM matriz WHERE idmatriz = ?',
           [matriz_idmatriz]
@@ -56,8 +48,8 @@ module.exports = (connection) => {
         const pointWKT = `POINT(${lng} ${lat})`;
 
         const [result] = await connection.promise().query(
-          'INSERT INTO empresa (usuario_idusuario, matriz_idmatriz, nombre, descripcion, ubicacion, eliminado) VALUES (?, ?, ?, ?, ST_GeomFromText(?), ?)',
-          [usuario_idusuario,matriz_idmatriz, nombre, descripcion, pointWKT, 0]
+          'INSERT INTO empresa ( matriz_idmatriz, nombre, descripcion, ubicacion, eliminado) VALUES ( ?, ?, ?, ST_GeomFromText(?), ?)',
+          [matriz_idmatriz, nombre, descripcion, pointWKT, 0]
         );
 
         res.status(201).json({ message: 'Empresa registrada', rolId: result.insertId });
@@ -68,7 +60,7 @@ module.exports = (connection) => {
     },
     actualizarEmpresa: async (req, res) => {
       const { id } = req.params;
-      const { usuario_idusuario, nombre, descripcion, ubicacion } = req.body;
+      const { matriz_idmatriz, nombre, descripcion, ubicacion } = req.body;
 
       try {
         let query = 'UPDATE empresa SET ';
@@ -79,6 +71,11 @@ module.exports = (connection) => {
           updates.push('usuario_idusuario = ?');
           params.push(usuario_idusuario);
         }
+
+         if (matriz_idmatriz) {
+            updates.push('matriz_idmatriz = ?');
+            params.push(matriz_idmatriz);
+          }
 
         if (nombre) {
           updates.push('nombre = ?');
