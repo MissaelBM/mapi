@@ -1,5 +1,3 @@
-
-
 module.exports = (connection) => {
   return {
     consultar: async (req, res) => {
@@ -67,10 +65,6 @@ module.exports = (connection) => {
         const updates = [];
         const params = [];
 
-        if (usuario_idusuario) {
-          updates.push('usuario_idusuario = ?');
-          params.push(usuario_idusuario);
-        }
 
          if (matriz_idmatriz) {
             updates.push('matriz_idmatriz = ?');
