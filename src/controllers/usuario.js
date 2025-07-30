@@ -1008,7 +1008,54 @@ module.exports = (connection) => {
     console.error('Error al actualizar el tipo de plan:', error);
     return res.status(500).json({ message: 'Error interno al actualizar el tipo de plan' });
   }
+},eliminarUsuarioYCliente: async (req, res) => {
+    const { id } = req.params; 
+
+    const conn = await connection.promise().getConnection();
+
+    try {
+        await conn.beginTransaction(); 
+
+        
+        const [clienteResult] = await conn.query(
+            'SELECT idcliente FROM cliente WHERE usuario_idusuario = ? AND eliminado = 0',
+            [id]
+        );
+
+       
+        if (clienteResult.length > 0) {
+            const idcliente = clienteResult[0].idcliente;
+
+            await conn.query(
+                'UPDATE cliente SET eliminado = ? WHERE idcliente = ?',
+                [1, idcliente]
+            );
+        }
+
+        
+        const [usuarioUpdate] = await conn.query(
+            'UPDATE usuario SET eliminado = ?, estatus = ? WHERE idusuario = ?',
+            [1, 0, id]
+        );
+
+        if (usuarioUpdate.affectedRows === 0) {
+            await conn.rollback(); 
+            return res.status(404).json({ message: 'Usuario no encontrado' });
+        }
+
+        await conn.commit(); 
+        res.status(200).json({ message: 'Usuario y cliente (si existe) eliminados lógicamente' });
+
+    } catch (error) {
+        await conn.rollback(); 
+        console.error('Error al eliminar usuario y cliente:', error);
+        res.status(500).json({ message: 'Error del servidor' });
+    } finally {
+        conn.release(); 
+    }
 }
+
+
 
 
   };

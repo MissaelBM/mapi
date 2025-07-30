@@ -28,6 +28,6 @@ module.exports = (connection) => {
   router.patch('/usuario/superusuario/:id', authenticateToken(['Superusuario']), controller.eliminarsuperusuario); 
   router.get('/usuario/confirmarUsuario/:token', controller.confirmarUsuario);
   router.patch('/usuario/premium/:id', controller.cambiarTipoDePlan);
-
+   router.delete('/usuario-cliente/:id', controller.eliminarUsuarioYCliente); 
   return router;
 };
