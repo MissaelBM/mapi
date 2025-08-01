@@ -37,7 +37,7 @@ const getTemplate = (nombre, token)=>{
    <head>
       <link rel ="stylesheet" href="./style.css">
    </head>
-   <div id="email__content">
+  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 8px; padding: 20px;">
       <h2>Correo de prueba para ${nombre}</h2>
       <p>Para confirmar tu correo entra al siguiente enlace</p>
       <a
@@ -58,10 +58,30 @@ const getPasswordResetTemplate = (nombre, token) => {
   `;
 }
 
+const getReactivationEmailTemplate = (nombre, codigo) => {
+  return `
+  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 8px; padding: 20px;">
+    <h2 style="color: #2a7ae4;">Hola ${nombre},</h2>
+    <p>Recibimos una solicitud para <strong>reactivar tu cuenta</strong>.</p>
+    <p>Tu código de reactivación es:</p>
+    <div style="text-align: center; margin: 20px 0;">
+      <span style="display: inline-block; font-size: 24px; letter-spacing: 4px; background-color: #f0f0f0; padding: 10px 20px; border-radius: 6px; font-weight: bold; color: #333;">
+        ${codigo}
+      </span>
+    </div>
+    <p>Este código expira en <strong>10 minutos</strong>.</p>
+    <p style="margin-top: 30px;">Si no solicitaste esta acción, puedes ignorar este correo.</p>
+    <hr style="margin: 40px 0; border: none; border-top: 1px solid #eee;">
+    <p style="font-size: 12px; color: #888;">NEER | Sistema de promociones</p>
+  </div>
+  `;
+};
+
 
 module.exports={
     sendEmail,
     getTemplate,
-    getPasswordResetTemplate
+    getPasswordResetTemplate,
+    getReactivationEmailTemplate
 }
 

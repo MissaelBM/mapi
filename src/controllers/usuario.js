@@ -1,5 +1,5 @@
 const { getToken, getTokenData, decodeTokenSinVerificar } = require('../config/jwt.config');
-const { getTemplate, sendEmail, getPasswordResetTemplate } = require('../config/mail.config');
+const { getTemplate, sendEmail, getPasswordResetTemplate, getReactivationEmailTemplate } = require('../config/mail.config');
 const { generateCode } = require('../utils/generateCode');
 const authenticateToken = require('../middleware/auth');
 const jwt = require('jsonwebtoken');
@@ -1079,15 +1079,15 @@ module.exports = (connection) => {
       return res.status(400).json({ success: false, message: 'La cuenta ya está activa' });
     }
 
-    const code = generateCode(); // Usa tu misma función
-    const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutos
+    const code = generateCode(); 
+    const expires = new Date(Date.now() + 10 * 60 * 1000); 
 
     await connection.promise().query(
       'INSERT INTO tokenpassword (usuario_idusuario, token, fechaexpiracion) VALUES (?, ?, ?)',
       [user.idusuario, code, expires]
     );
 
-    const emailTemplate = `<h2>Hola ${user.nombre},</h2><p>Tu código para reactivar tu cuenta es <strong>${code}</strong></p><p>Este código expira en 10 minutos.</p>`;
+   const emailTemplate = getReactivationEmailTemplate(user.nombre, code);
 
     await sendEmail(email, 'Código de reactivación de cuenta', emailTemplate);
 
