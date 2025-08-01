@@ -1034,8 +1034,8 @@ module.exports = (connection) => {
 
         
         const [usuarioUpdate] = await conn.query(
-            'UPDATE usuario SET eliminado = ?, estatus = ? WHERE idusuario = ?',
-            [1, 0, id]
+            'UPDATE usuario SET eliminado = ? WHERE idusuario = ?',
+            [1, id]
         );
 
         if (usuarioUpdate.affectedRows === 0) {
@@ -1053,7 +1053,85 @@ module.exports = (connection) => {
     } finally {
         conn.release(); 
     }
+},sendReactivationCode: async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    const [users] = await connection.promise().query(
+      `SELECT u.idusuario, c.nombre, u.estatus, u.eliminado, c.eliminado AS clienteEliminado
+       FROM usuario AS u
+       INNER JOIN cliente AS c ON u.idusuario = c.usuario_idusuario
+       WHERE u.email = ?`,
+      [email]
+    );
+
+    if (users.length === 0) {
+      return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+    }
+
+    const user = users[0];
+
+    if (user.estatus !== 1) {
+      return res.status(403).json({ success: false, message: 'Correo no confirmado' });
+    }
+
+    if (user.eliminado === 0 && user.clienteEliminado === 0) {
+      return res.status(400).json({ success: false, message: 'La cuenta ya está activa' });
+    }
+
+    const code = generateCode(); // Usa tu misma función
+    const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutos
+
+    await connection.promise().query(
+      'INSERT INTO tokenpassword (usuario_idusuario, token, fechaexpiracion) VALUES (?, ?, ?)',
+      [user.idusuario, code, expires]
+    );
+
+    const emailTemplate = `<h2>Hola ${user.nombre},</h2><p>Tu código para reactivar tu cuenta es <strong>${code}</strong></p><p>Este código expira en 10 minutos.</p>`;
+
+    await sendEmail(email, 'Código de reactivación de cuenta', emailTemplate);
+
+    res.json({ success: true, message: 'Código enviado al correo' });
+  } catch (error) {
+    console.error('Error en envío de código de reactivación:', error);
+    res.status(500).json({ message: 'Error en el servidor' });
+  }
+},reactivateAccount: async (req, res) => {
+  const { token } = req.body;
+
+  try {
+    const [records] = await connection.promise().query(
+      'SELECT usuario_idusuario FROM tokenpassword WHERE token = ? AND fechaexpiracion > NOW()',
+      [token]
+    );
+
+    if (records.length === 0) {
+      return res.status(400).json({ success: false, message: 'Token inválido o expirado' });
+    }
+
+    const userId = records[0].usuario_idusuario;
+
+    // Reactivar cuenta (ambas tablas)
+    await connection.promise().query(
+      'UPDATE usuario SET eliminado = 0 WHERE idusuario = ?',
+      [userId]
+    );
+    await connection.promise().query(
+      'UPDATE cliente SET eliminado = 0 WHERE usuario_idusuario = ?',
+      [userId]
+    );
+
+    // Eliminar token
+    await connection.promise().query('DELETE FROM tokenpassword WHERE token = ?', [token]);
+
+    res.json({ success: true, message: 'Cuenta reactivada exitosamente' });
+  } catch (error) {
+    console.error('Error al reactivar cuenta:', error);
+    res.status(500).json({ message: 'Error en el servidor' });
+  }
 }
+
+
 
 
 

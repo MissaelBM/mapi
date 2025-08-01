@@ -29,5 +29,9 @@ module.exports = (connection) => {
   router.get('/usuario/confirmarUsuario/:token', controller.confirmarUsuario);
   router.patch('/usuario/premium/:id', controller.cambiarTipoDePlan);
    router.delete('/usuario-cliente/:id', controller.eliminarUsuarioYCliente); 
+   router.post('/usuario/solicitar-reactivacion', controller.sendReactivationCode);
+router.post('/usuario/reactivar', controller.reactivateAccount);
+
+
   return router;
 };
