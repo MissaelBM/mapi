@@ -20,6 +20,8 @@ const listadecategoriaRoutes = require('./src/routes/listadecategoria');
 const matrizRoutes = require('./src/routes/matriz');
 const uploadRoutes = require('./src/routes/upload');
 const favoritoRoutes = require('./src/routes/favorito');
+const tesoroRoutes = require('./src/routes/tesoro');
+const cliente_tesoroRoutes = require('./src/routes/cliente_tesoro');
 const app = express();
 const port = process.env.PORT || 8080;
 const cors = require('cors');
@@ -71,6 +73,8 @@ app.use('/api', listadecategoriaRoutes(pool));
 app.use('/api', matrizRoutes(pool));
 app.use('/api', uploadRoutes(pool));
 app.use('/api', favoritoRoutes(pool));
+app.use('/api', tesoroRoutes(pool));
+app.use('/api', cliente_tesoroRoutes(pool));
 
 
 
