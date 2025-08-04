@@ -33,7 +33,7 @@ module.exports = (connection) => {
         const uploadPromises = req.files.map((file) => {
           return new Promise((resolve, reject) => {
             const uploadStream = cloudinary.uploader.upload_stream(
-              { resource_type: "image" },
+              { resource_type: "image", format: "webp" },
               (error, result) => {
                 if (error) {
                   reject(error);

@@ -49,7 +49,55 @@ module.exports = (connection) => {
                 console.error('Error al consultar promociones:', error);
                 res.status(500).json({ message: 'Error al consultar promociones' });
             }
-        },
+        }, promocionPorUsuario: async (req, res) => {
+           const { id } = req.params;
+
+            try {
+
+                const [promociones] = await connection.promise().query(
+                    `SELECT promocion.idpromocion, 
+                    promocion.empresa_idempresa, 
+                    promocion.categoria_idcategoria,
+                    promocion.nombre, 
+                    promocion.descripcion,
+                    promocion.precio, 
+                    promocion.vigenciainicio,
+                    promocion.vigenciafin, 
+                    promocion.tipo FROM promocion INNER JOIN empresa ON promocion.empresa_idempresa = empresa.idempresa INNER JOIN matriz ON matriz.idmatriz = empresa.matriz_idmatriz INNER JOIN usuario ON  matriz.usuario_idusuario = usuario.idusuario WHERE usuario.idusuario =  ? AND p.eliminado = 0`,
+                    [id]
+                );
+
+
+                if (promociones.length === 0) {
+                    return res.status(404).json({ message: 'Promoción no encontrada' });
+                }
+
+                const promocion = promociones[0];
+               
+               
+
+                const [imagenes] = await connection.promise().query(
+                    'SELECT idimagen, url, public_id FROM imagen WHERE promocion_idpromocion = ?',
+                    [id]
+                );
+
+
+                const respuesta = {
+                    ...promocion,
+                    imagenes: imagenes.map(img => ({
+                        id: img.idimagen,
+                        url: img.url,
+                        public_id: img.public_id
+                    }))
+                };
+
+                res.status(200).json(respuesta);
+            } catch (error) {
+                console.error('Error al consultar promoción:', error);
+                res.status(500).json({ message: 'Error al consultar promoción' });
+            }
+        }
+        ,
         promocionPremium: async (req, res) => {
             try {
 
@@ -193,7 +241,7 @@ module.exports = (connection) => {
                                     resource_type: "image",
                                     transformation: [
                                         { width: 600, height: 450, crop: "limit" },
-                                        { quality: "auto", fetch_format: "auto" }
+                                        { quality: "auto", format: "webp" }
                                     ]
                                 },
                                 (error, result) => {
@@ -270,6 +318,13 @@ module.exports = (connection) => {
         if (promocionExistente.length === 0) {
             return res.status(404).json({ message: 'Promoción no encontrada' });
         }
+
+        const promocion = promocionExistente[0];
+
+
+if (promocion.idusuario !== req.usuario.idusuario) {
+    return res.status(403).json({ message: 'No tienes permiso para actualizar esta promoción' });
+}
 
         
         if (empresa_idempresa) {

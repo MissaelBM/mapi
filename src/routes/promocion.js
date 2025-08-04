@@ -11,6 +11,7 @@ module.exports = (connection) => {
     router.get('/promocion', controller.consultar);
     router.get('/promocionPremium', controller.promocionPremium);
     router.get('/promocion/:id', controller.consultarId);
+    router.get('/promocion/usuario/:id', controller.promocionPorUsuario);
    router.patch('/promocion/:id', upload.array('images'), controller.actualizarPromocion);
     router.delete('/promocion/:id', controller.eliminarPromocion);
     router.post('/promocionGeneral', upload.array('images', 4), controller.promocionGeneral);
