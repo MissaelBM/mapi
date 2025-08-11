@@ -1,4 +1,6 @@
 const cloudinary = require("../utils/cloudinary");
+const { v4: uuidv4 } = require('uuid');
+const QRCode = require('qrcode'); 
 
 module.exports = (connection) => {
     return {
@@ -194,97 +196,116 @@ module.exports = (connection) => {
             }
         },
 
-        promocion: async (req, res) => {
-            const {
-                empresa_idempresa,
-                categoria_idcategoria,
-                nombre,
-                descripcion,
-                precio,
-                vigenciainicio,
-                vigenciafin,
-                tipo,
-            } = req.body;
+ 
 
-            try {
+promocion: async (req, res) => {
+    const {
+        empresa_idempresa,
+        categoria_idcategoria,
+        nombre,
+        descripcion,
+        precio,
+        vigenciainicio,
+        vigenciafin,
+        tipo,
+    } = req.body;
 
-                const [empresaResult] = await connection.promise().query(
-                    'SELECT idempresa FROM empresa WHERE idempresa = ?',
-                    [empresa_idempresa]
-                );
-                if (empresaResult.length === 0) {
-                    return res.status(400).json({ message: 'La empresa especificada no existe' });
-                }
+    try {
+        
+        const [empresaResult] = await connection.promise().query(
+            'SELECT idempresa FROM empresa WHERE idempresa = ?',
+            [empresa_idempresa]
+        );
+        if (empresaResult.length === 0) {
+            return res.status(400).json({ message: 'La empresa especificada no existe' });
+        }
 
-                const [categoriaResult] = await connection.promise().query(
-                    'SELECT idcategoria FROM categoria WHERE idcategoria = ?',
-                    [categoria_idcategoria]
-                );
-                if (categoriaResult.length === 0) {
-                    return res.status(400).json({ message: 'La categoría especificada no existe' });
-                }
+        const [categoriaResult] = await connection.promise().query(
+            'SELECT idcategoria FROM categoria WHERE idcategoria = ?',
+            [categoria_idcategoria]
+        );
+        if (categoriaResult.length === 0) {
+            return res.status(400).json({ message: 'La categoría especificada no existe' });
+        }
 
+        const [result] = await connection.promise().query(
+            'INSERT INTO promocion (empresa_idempresa, categoria_idcategoria, nombre, descripcion, precio, vigenciainicio, vigenciafin, tipo, eliminado) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [empresa_idempresa, categoria_idcategoria, nombre, descripcion, precio, vigenciainicio, vigenciafin, tipo, 0]
+        );
 
-                const [result] = await connection.promise().query(
-                    'INSERT INTO promocion (empresa_idempresa, categoria_idcategoria, nombre, descripcion, precio, vigenciainicio, vigenciafin, tipo, eliminado) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                    [empresa_idempresa, categoria_idcategoria, nombre, descripcion, precio, vigenciainicio, vigenciafin, tipo, 0]
-                );
+        const promocionId = result.insertId;
 
-                const promocionId = result.insertId;
+      
+        const token = uuidv4();
 
+        await connection.promise().query(
+            'INSERT INTO qr_promocion (token, promocion_idpromocion) VALUES (?, ?)',
+            [token, promocionId]
+        );
 
-                if (req.files && req.files.length > 0) {
-                    const uploadPromises = req.files.map((file) => {
-                        return new Promise((resolve, reject) => {
-                            const uploadStream = cloudinary.uploader.upload_stream(
-                                {
-                                    resource_type: "image",
-                                    transformation: [
-                                        { width: 600, height: 450, crop: "limit" },
-                                        { quality: "auto", format: "webp" }
-                                    ]
-                                },
-                                (error, result) => {
-                                    if (error) {
-                                        reject(error);
-                                    } else {
-                                        resolve(result);
-                                    }
-                                }
-                            );
+       
+        const qrUrl = `${process.env.URL_API}/api/promociones/reclamar/${token}`;
 
-                            uploadStream.end(file.buffer);
-                        });
-                    });
+        const qrImage = await QRCode.toDataURL(qrUrl);
 
+        if (req.files && req.files.length > 0) {
+            const uploadPromises = req.files.map((file) => {
+                return new Promise((resolve, reject) => {
+                    const uploadStream = cloudinary.uploader.upload_stream(
+                        {
+                            resource_type: "image",
+                            transformation: [
+                                { width: 600, height: 450, crop: "limit" },
+                                { quality: "auto", format: "webp" }
+                            ]
+                        },
+                        (error, result) => {
+                            if (error) {
+                                reject(error);
+                            } else {
+                                resolve(result);
+                            }
+                        }
+                    );
+                    uploadStream.end(file.buffer);
+                });
+            });
 
-                    const imageResults = await Promise.all(uploadPromises);
+            const imageResults = await Promise.all(uploadPromises);
 
-                    const insertPromises = imageResults.map((image) => {
-                        return new Promise((resolve, reject) => {
-                            connection.query(
-                                "INSERT INTO imagen (url, public_id, promocion_idpromocion) VALUES (?, ?, ?)",
-                                [image.secure_url, image.public_id, promocionId],
-                                (err, result) => {
-                                    if (err) {
-                                        reject(err);
-                                    } else {
-                                        resolve(result);
-                                    }
-                                }
-                            );
-                        });
-                    });
+            const insertPromises = imageResults.map((image) => {
+                return new Promise((resolve, reject) => {
+                    connection.query(
+                        "INSERT INTO imagen (url, public_id, promocion_idpromocion) VALUES (?, ?, ?)",
+                        [image.secure_url, image.public_id, promocionId],
+                        (err, result) => {
+                            if (err) {
+                                reject(err);
+                            } else {
+                                resolve(result);
+                            }
+                        }
+                    );
+                });
+            });
 
-                    await Promise.all(insertPromises);
-                }
+            await Promise.all(insertPromises);
+        }
 
-                res.status(201).json({ message: 'Promoción registrada con imágenes', promocionId });
-            } catch (error) {
-                console.error('Error al registrar promoción:', error);
-                res.status(500).json({ message: 'Error al registrar promoción' });
-            }
-        },
+        res.status(201).json({
+            message: 'Promoción registrada con imágenes y QR',
+            promocionId,
+            qr_token: token,
+            qr_url: qrUrl,
+            qr_image_base64: qrImage 
+        });
+
+    } catch (error) {
+        console.error('Error al registrar promoción:', error);
+        res.status(500).json({ message: 'Error al registrar promoción' });
+    }
+}
+,
 
         actualizarPromocion: async (req, res) => {
     const promocionId = req.params.id;
@@ -633,7 +654,47 @@ if (promocion.idusuario !== req.usuario.idusuario) {
                 console.error('Error al consultar promociones por rango:', error);
                 res.status(500).json({ message: 'Error al consultar promociones' });
             }
-        }
+        },reclamarPromocion: async (req, res) => {
+  const { token } = req.params;
+  const { cliente_idcliente } = req.body; 
+
+  try {
+   
+    const [qrRows] = await connection.promise().query(
+      'SELECT promocion_idpromocion FROM qr_promocion WHERE token = ?',
+      [token]
+    );
+
+    if (qrRows.length === 0) {
+      return res.status(404).json({ message: 'QR inválido o no encontrado' });
+    }
+
+    const promocionId = qrRows[0].promocion_idpromocion;
+
+   
+    const [yaReclamado] = await connection.promise().query(
+      'SELECT * FROM cliente_promocion WHERE cliente_idcliente = ? AND promocion_idpromocion = ?',
+      [cliente_idcliente, promocionId]
+    );
+
+    if (yaReclamado.length > 0) {
+      return res.status(400).json({ message: 'Esta promoción ya fue reclamada por este cliente' });
+    }
+
+    
+    await connection.promise().query(
+      'INSERT INTO cliente_promocion (cliente_idcliente, promocion_idpromocion, reclamado) VALUES (?, ?, 1)',
+      [cliente_idcliente, promocionId]
+    );
+
+    res.status(200).json({ message: 'Promoción reclamada exitosamente' });
+
+  } catch (error) {
+    console.error('Error al reclamar promoción:', error);
+    res.status(500).json({ message: 'Error al reclamar la promoción' });
+  }
+}
+
 
 
 

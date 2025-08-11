@@ -567,10 +567,14 @@ module.exports = (connection) => {
 
     const rol_idrol = roles[0].idrol;
 
-    const [emailResult] = await connectionPromise.query(
-      'SELECT idusuario, estatus FROM usuario WHERE email = ?',
-      [email]
-    );
+   
+     const [emailResult] = await db.query(
+  `SELECT u.idusuario, u.estatus
+   FROM usuario u
+   JOIN rol r ON u.rol_idrol = r.idrol
+   WHERE u.email = ? AND r.nombre = ?`,
+  [cleanEmail, 'Vendedor']
+);
 
     if (emailResult.length > 0) {
       const user = emailResult[0];

@@ -16,6 +16,7 @@ module.exports = (connection) => {
     router.delete('/promocion/:id', controller.eliminarPromocion);
     router.post('/promocionGeneral', upload.array('images', 4), controller.promocionGeneral);
     router.post('/promocionRango', controller.consultarPorRango);
+    router.post('/promocion/reclamar/:token', controller.reclamarPromocion);
 
     return router;
 };
