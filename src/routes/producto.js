@@ -9,7 +9,7 @@ module.exports = (connection) => {
   router.get('/producto',controller.consultar);
   router.get('/producto/:id', controller.consultarId);
   router.patch('/producto/:id', controller.actualizar);
-  router.delete('/producto/:id', controller.eliminarTesoro);
+  router.delete('/producto/:id', controller.eliminarProducto);
 
   return router;
 };
