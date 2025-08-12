@@ -23,6 +23,7 @@ const favoritoRoutes = require('./src/routes/favorito');
 const tesoroRoutes = require('./src/routes/tesoro');
 const cliente_tesoroRoutes = require('./src/routes/cliente_tesoro');
 const productoRoutes = require('./src/routes/producto');
+const tipopromocionRoutes = require('./src/routes/tipopromocion');
 const app = express();
 const port = process.env.PORT || 8080;
 const cors = require('cors');
@@ -77,7 +78,7 @@ app.use('/api', favoritoRoutes(pool));
 app.use('/api', tesoroRoutes(pool));
 app.use('/api', cliente_tesoroRoutes(pool));
 app.use('/api', productoRoutes(pool));
-
+app.use('/api', tipopromocionRoutes(pool));
 
 
 
