@@ -11,7 +11,7 @@ module.exports = (connection) => {
                     `SELECT 
                         p.idpromocion,
                         p.empresa_idempresa,
-                        p.categoria_idcategoria,
+                        p.tipopromocion_idtipopromocion,
                         p.nombre,
                         p.descripcion,
                         p.precio,
@@ -199,111 +199,183 @@ module.exports = (connection) => {
  
 
 promocion: async (req, res) => {
+    // 0.1 Parsear products a un array real (JSON o CSV)
+    let productsArr = [];
+    const productsRaw = req.body.products;
+    if (typeof productsRaw === 'string') {
+      try {
+        productsArr = JSON.parse(productsRaw);
+      } catch {
+        productsArr = productsRaw
+          .split(',')
+          .map(s => s.trim())
+          .filter(s => s);
+      }
+    } else if (Array.isArray(productsRaw)) {
+      productsArr = productsRaw;
+    }
+
+    // 0.2 Forzar array si viene undefined u otro tipo
+    if (!Array.isArray(productsArr)) {
+      productsArr = [];
+    }
+
+    // 1. Extraer el resto de campos
     const {
-        empresa_idempresa,
-        categoria_idcategoria,
-        nombre,
-        descripcion,
-        precio,
-        vigenciainicio,
-        vigenciafin,
-        tipo,
+      empresa_idempresa,
+      tipopromocion_idtipopromocion,
+      nombre,
+      descripcion,
+      precio,
+      vigenciainicio,
+      vigenciafin,
+      tipo,
+      maximosusuarios  = 1,
+      qrCount          = 0
     } = req.body;
 
+    // 2. Obtener conexión dedicada
+    const conn = await connection.promise().getConnection();
     try {
-        
-        const [empresaResult] = await connection.promise().query(
-            'SELECT idempresa FROM empresa WHERE idempresa = ?',
-            [empresa_idempresa]
-        );
-        if (empresaResult.length === 0) {
-            return res.status(400).json({ message: 'La empresa especificada no existe' });
-        }
+      // 3. Iniciar transacción
+      await conn.beginTransaction();
 
-        const [categoriaResult] = await connection.promise().query(
-            'SELECT idcategoria FROM categoria WHERE idcategoria = ?',
-            [categoria_idcategoria]
-        );
-        if (categoriaResult.length === 0) {
-            return res.status(400).json({ message: 'La categoría especificada no existe' });
-        }
+      // 4. Validar empresa
+      const [emp] = await conn.query(
+        'SELECT 1 FROM empresa WHERE idempresa = ?',
+        [empresa_idempresa]
+      );
+      if (!emp.length) {
+        await conn.rollback();
+        conn.release();
+        return res.status(400).json({ message: 'Empresa no existe' });
+      }
 
-        const [result] = await connection.promise().query(
-            'INSERT INTO promocion (empresa_idempresa, categoria_idcategoria, nombre, descripcion, precio, vigenciainicio, vigenciafin, tipo, eliminado) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [empresa_idempresa, categoria_idcategoria, nombre, descripcion, precio, vigenciainicio, vigenciafin, tipo, 0]
-        );
+      // 5. Validar tipo de promoción
+      const [tipoProm] = await conn.query(
+        'SELECT 1 FROM tipopromocion WHERE idtipopromocion = ?',
+        [tipopromocion_idtipopromocion]
+      );
+      if (!tipoProm.length) {
+        await conn.rollback();
+        conn.release();
+        return res.status(400).json({ message: 'Tipo de promoción no existe' });
+      }
 
-        const promocionId = result.insertId;
-
-      
-        const token = uuidv4();
-
-        await connection.promise().query(
-            'INSERT INTO qr_promocion (token, promocion_idpromocion) VALUES (?, ?)',
-            [token, promocionId]
-        );
-
-       
-        const qrUrl = `${process.env.URL_API}/api/promociones/reclamar/${token}`;
-
-        const qrImage = await QRCode.toDataURL(qrUrl);
-
-        if (req.files && req.files.length > 0) {
-            const uploadPromises = req.files.map((file) => {
-                return new Promise((resolve, reject) => {
-                    const uploadStream = cloudinary.uploader.upload_stream(
-                        {
-                            resource_type: "image",
-                            transformation: [
-                                { width: 600, height: 450, crop: "limit" },
-                                { quality: "auto", format: "webp" }
-                            ]
-                        },
-                        (error, result) => {
-                            if (error) {
-                                reject(error);
-                            } else {
-                                resolve(result);
-                            }
-                        }
-                    );
-                    uploadStream.end(file.buffer);
-                });
-            });
-
-            const imageResults = await Promise.all(uploadPromises);
-
-            const insertPromises = imageResults.map((image) => {
-                return new Promise((resolve, reject) => {
-                    connection.query(
-                        "INSERT INTO imagen (url, public_id, promocion_idpromocion) VALUES (?, ?, ?)",
-                        [image.secure_url, image.public_id, promocionId],
-                        (err, result) => {
-                            if (err) {
-                                reject(err);
-                            } else {
-                                resolve(result);
-                            }
-                        }
-                    );
-                });
-            });
-
-            await Promise.all(insertPromises);
-        }
-
-        res.status(201).json({
-            message: 'Promoción registrada con imágenes y QR',
-            promocionId,
-            qr_token: token,
-            qr_url: qrUrl,
-            qr_image_base64: qrImage 
+      // 6. Validar límite de QR vs máximosusuarios
+      if (qrCount > maximosusuarios) {
+        await conn.rollback();
+        conn.release();
+        return res.status(400).json({
+          message: 'La cantidad de QR no puede exceder el máximo de usuarios'
         });
+      }
+
+      // 7. Insertar promoción con máximo de usuarios
+      const [promoRes] = await conn.query(
+        `INSERT INTO promocion
+          (empresa_idempresa, tipopromocion_idtipopromocion, nombre, descripcion,
+           precio, vigenciainicio, vigenciafin, tipo, maximosusuarios, eliminado)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+        [
+          empresa_idempresa,
+          tipopromocion_idtipopromocion,
+          nombre,
+          descripcion,
+          precio,
+          vigenciainicio,
+          vigenciafin,
+          tipo,
+          maximosusuarios
+        ]
+      );
+      const promocionId = promoRes.insertId;
+
+      // 8. Crear combo
+      const [comboRes] = await conn.query(
+        'INSERT INTO combo (promocion_idpromocion) VALUES (?)',
+        [promocionId]
+      );
+      const comboId = comboRes.insertId;
+
+      // 9. Relacionar productos (usando productsArr)
+      if (productsArr.length) {
+        const values = productsArr.map(idProd => [comboId, idProd]);
+        await conn.query(
+          'INSERT INTO combo_producto (combo_idcombo, producto_idproducto) VALUES ?',
+          [values]
+        );
+      }
+
+      // 10. Generar múltiples QR (si qrCount > 0)
+      let qrItems = null;
+      if (qrCount > 0) {
+        const tokens   = Array.from({ length: qrCount }, () => uuidv4());
+        const qrValues = tokens.map(token => [token, promocionId]);
+        await conn.query(
+          'INSERT INTO qr_promocion (token, promocion_idpromocion) VALUES ?',
+          [qrValues]
+        );
+
+        const urls   = tokens.map(t => `${process.env.URL_API}/api/promociones/reclamar/${t}`);
+        const images = await Promise.all(urls.map(u => QRCode.toDataURL(u)));
+
+        qrItems = tokens.map((token, i) => ({
+          token,
+          url: urls[i],
+          imageBase64: images[i]
+        }));
+      }
+
+      // 11. Subida de imágenes a Cloudinary
+      if (req.files && req.files.length) {
+        const uploaders = req.files.map(file =>
+          new Promise((resolve, reject) => {
+            const stream = cloudinary.uploader.upload_stream(
+              {
+                resource_type: 'image',
+                transformation: [
+                  { width: 600, height: 450, crop: 'limit' },
+                  { quality: 'auto', format: 'webp' }
+                ]
+              },
+              (err, result) => err ? reject(err) : resolve(result)
+            );
+            stream.end(file.buffer);
+          })
+        );
+        const uploaded = await Promise.all(uploaders);
+        const imgValues = uploaded.map(img => [
+          img.secure_url,
+          img.public_id,
+          promocionId
+        ]);
+        await conn.query(
+          'INSERT INTO imagen (url, public_id, promocion_idpromocion) VALUES ?',
+          [imgValues]
+        );
+      }
+
+      // 12. Commit y liberar conexión
+      await conn.commit();
+      conn.release();
+
+      // 13. Responder
+      return res.status(201).json({
+        message: 'Promoción creada exitosamente',
+        promocionId,
+        comboId,
+        maximosusuarios,
+        qr: qrItems
+      });
 
     } catch (error) {
-        console.error('Error al registrar promoción:', error);
-        res.status(500).json({ message: 'Error al registrar promoción' });
+      console.error('Error al crear promoción con QR múltiple:', error);
+      await conn.rollback();
+      conn.release();
+      return res.status(500).json({ message: 'Error al crear promoción' });
     }
+  
 }
 ,
 
