@@ -51,7 +51,102 @@ module.exports = (connection) => {
                 console.error('Error al consultar promociones:', error);
                 res.status(500).json({ message: 'Error al consultar promociones' });
             }
-        }, promocionPorUsuario: async (req, res) => {
+        },promocionPorCategoria: async (req, res) => {
+    const { id } = req.params; // idcategoria
+
+    try {
+        const [promociones] = await connection.promise().query(
+            `SELECT DISTINCT p.idpromocion,
+                    p.empresa_idempresa,
+                    p.nombre,
+                    p.descripcion,
+                    p.vigenciainicio,
+                    p.vigenciafin,
+                    p.tipo,
+                    p.precio
+             FROM promocion p
+             INNER JOIN combo co ON p.idpromocion = co.promocion_idpromocion
+             INNER JOIN combo_producto cp ON co.idcombo = cp.combo_idcombo
+             INNER JOIN producto pr ON cp.producto_idproducto = pr.idproducto
+             INNER JOIN categoria c ON pr.categoria_idcategoria = c.idcategoria
+             WHERE c.idcategoria = ? AND p.eliminado = 0`,
+            [id]
+        );
+
+        if (promociones.length === 0) {
+            return res.status(404).json({ message: 'No se encontraron promociones para esta categoría' });
+        }
+
+        // Opcional: traer imágenes asociadas a cada promo
+        for (let promo of promociones) {
+            const [imagenes] = await connection.promise().query(
+                'SELECT idimagen, url, public_id FROM imagen WHERE promocion_idpromocion = ?',
+                [promo.idpromocion]
+            );
+
+            promo.imagenes = imagenes.map(img => ({
+                id: img.idimagen,
+                url: img.url,
+                public_id: img.public_id
+            }));
+        }
+
+        res.status(200).json(promociones);
+
+    } catch (error) {
+        console.error('Error al consultar promociones por categoría:', error);
+        res.status(500).json({ message: 'Error al consultar promociones por categoría' });
+    }
+}
+, promocionPorTipoPromocion: async (req, res) => {
+           const { id } = req.params;
+
+            try {
+
+                const [promociones] = await connection.promise().query(
+                    `SELECT p.idpromocion,
+                    p.empresa_idempresa, 
+                    p.tipopromocion_idtipopromocion,
+                     p.nombre, 
+                     p.descripcion, 
+                     p.vigenciainicio, 
+                     p.vigenciafin,
+                     p.tipo, 
+                     p.maximosusuarios, 
+                     p.preciooriginal from promocion as p INNER JOIN tipopromocion as t ON p.tipopromocion_idtipopromocion = t.idtipopromocion WHERE t.idtipopromocion =  ? AND p.eliminado = 0`,
+                    [id]
+                );
+
+
+                if (promociones.length === 0) {
+                    return res.status(404).json({ message: 'Promoción no encontrada' });
+                }
+
+                const promocion = promociones[0];
+               
+               
+
+                const [imagenes] = await connection.promise().query(
+                    'SELECT idimagen, url, public_id FROM imagen WHERE promocion_idpromocion = ?',
+                    [id]
+                );
+
+
+                const respuesta = {
+                    ...promocion,
+                    imagenes: imagenes.map(img => ({
+                        id: img.idimagen,
+                        url: img.url,
+                        public_id: img.public_id
+                    }))
+                };
+
+                res.status(200).json(respuesta);
+            } catch (error) {
+                console.error('Error al consultar promoción:', error);
+                res.status(500).json({ message: 'Error al consultar promoción' });
+            }
+        } , promocionPorUsuario: async (req, res) => {
            const { id } = req.params;
 
             try {

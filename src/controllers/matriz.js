@@ -30,7 +30,7 @@ module.exports = (connection) => {
       },
 
       crearmatriz: async (req, res) => {
-        const {usuario_idusuario, nombre, ubicacion, telefono, email } = req.body;
+        const {usuario_idusuario, nombre, ubicacion, telefono, email,idcreador } = req.body;
     
         try {
 
@@ -47,8 +47,8 @@ module.exports = (connection) => {
     
       
             const [result] = await connection.promise().query(
-              'INSERT INTO matriz (usuario_idusuario, nombre, ubicacion, telefono, email,eliminado) VALUES (?, ?, ST_GeomFromText(?), ?, ?, ?)',
-              [usuario_idusuario, nombre, pointWKT, telefono, email,  0]
+              'INSERT INTO matriz (usuario_idusuario, nombre, ubicacion, telefono, email, idcreador, fechacreacion, fechaactualizacion, eliminado) VALUES (?, ?, ST_GeomFromText(?), ?, ?, ?, ?, ?, ?)',
+              [usuario_idusuario, nombre, pointWKT, telefono,  email, idcreador, new Date(),null, 0]
           );
     
             res.status(201).json({ message: 'Matriz de empresa registrada', idmatriz: result.insertId });
