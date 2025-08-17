@@ -18,6 +18,7 @@ module.exports = (connection) => {
     router.post('/promocionGeneral', upload.array('images', 4), controller.promocionGeneral);
     router.post('/promocionRango', controller.consultarPorRango);
     router.post('/promocion/reclamar/:token', controller.reclamarPromocion);
+    router.get('/promocion/categoria/:id', controller.promocionPorCategoria);
 
     return router;
 };
