@@ -853,6 +853,12 @@ if (promocion.idusuario !== req.usuario.idusuario) {
       'INSERT INTO cliente_promocion (cliente_idcliente, promocion_idpromocion, reclamado) VALUES (?, ?, 1)',
       [cliente_idcliente, promocionId]
     );
+req.io.emit('promocionReclamada', {
+  cliente_idcliente,
+  promocionId,
+  token,
+  timestamp: Date.now()
+});
 
     res.status(200).json({ message: 'Promoción reclamada exitosamente' });
 
