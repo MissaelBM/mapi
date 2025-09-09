@@ -19,6 +19,8 @@ module.exports = (connection) => {
     router.post('/promocionRango', controller.consultarPorRango);
     router.post('/promocion/reclamar/:token', controller.reclamarPromocion);
     router.get('/promocion/categoria/:id', controller.promocionPorCategoria);
+    router.get('/promocion/generarQR/:id', controller.validarQR);
+    router.get('/promocion/reclamado/:id', controller.consultarReclamado);
 
     return router;
 };

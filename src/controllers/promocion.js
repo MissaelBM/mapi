@@ -5,53 +5,69 @@ const QRCode = require('qrcode');
 module.exports = (connection) => {
     return {
         consultar: async (req, res) => {
-            try {
+    try {
+      const [promociones] = await connection.promise().query(
+        `SELECT 
+           p.idpromocion,
+           p.empresa_idempresa,
+           p.tipopromocion_idtipopromocion,
+           p.nombre,
+           p.descripcion,
+           p.precio,
+           p.vigenciainicio,
+           p.vigenciafin,
+           p.tipo,
+           p.maximosusuarios
+         FROM promocion p
+         WHERE p.eliminado = 0`
+      );
 
-                const [promociones] = await connection.promise().query(
-                    `SELECT 
-                        p.idpromocion,
-                        p.empresa_idempresa,
-                        p.tipopromocion_idtipopromocion,
-                        p.nombre,
-                        p.descripcion,
-                        p.precio,
-                        p.vigenciainicio,
-                        p.vigenciafin,
-                        p.tipo
-                     FROM promocion p
-                     
-                     WHERE p.eliminado = 0`
-                );
+      if (!promociones.length) {
+        return res.status(404).json({ message: 'No se encontraron promociones' });
+      }
 
+      const results = await Promise.all(
+        promociones.map(async promocion => {
+          // Obtener imágenes
+          const [imagenes] = await connection.promise().query(
+            `SELECT idimagen, url, public_id 
+             FROM imagen 
+             WHERE promocion_idpromocion = ?`,
+            [promocion.idpromocion]
+          );
 
-                if (promociones.length === 0) {
-                    return res.status(404).json({ message: 'No se encontraron promociones' });
-                }
+          // Obtener QRs - solo token y estado, sin generar imagen
+          const [qrRows] = await connection.promise().query(
+            `SELECT token, usado 
+             FROM qr_promocion 
+             WHERE promocion_idpromocion = ?`,
+            [promocion.idpromocion]
+          );
 
+          const qrs = qrRows.map(qr => ({
+            token: qr.token,
+            url: `${process.env.URL_API}/api/promocion/reclamar/${qr.token}`,
+            usado: qr.usado === 1
+          }));
 
-                const promocionesConImagenes = await Promise.all(
-                    promociones.map(async (promocion) => {
-                        const [imagenes] = await connection.promise().query(
-                            'SELECT idimagen, url, public_id FROM imagen WHERE promocion_idpromocion = ?',
-                            [promocion.idpromocion]
-                        );
-                        return {
-                            ...promocion,
-                            imagenes: imagenes.map(img => ({
-                                id: img.idimagen,
-                                url: img.url,
-                                public_id: img.public_id
-                            }))
-                        };
-                    })
-                );
+          return {
+            ...promocion,
+            imagenes: imagenes.map(img => ({
+              id: img.idimagen,
+              url: img.url,
+              public_id: img.public_id
+            })),
+            qrs
+          };
+        })
+      );
 
-                res.status(200).json(promocionesConImagenes);
-            } catch (error) {
-                console.error('Error al consultar promociones:', error);
-                res.status(500).json({ message: 'Error al consultar promociones' });
-            }
-        },promocionPorCategoria: async (req, res) => {
+      return res.status(200).json(results);
+    } catch (error) {
+      console.error('Error al consultar promociones:', error);
+      return res.status(500).json({ message: 'Error al consultar promociones' });
+    }
+  },promocionPorCategoria: async (req, res) => {
     const { id } = req.params; // idcategoria
 
     try {
@@ -239,57 +255,66 @@ module.exports = (connection) => {
             }
         }
         ,
+consultarId: async (req, res) => {
+    const { id } = req.params;
+    try {
+        const [promociones] = await connection.promise().query(
+            `SELECT 
+                p.idpromocion,
+                p.empresa_idempresa,
+                p.tipopromocion_idtipopromocion,
+                p.nombre,
+                p.descripcion,
+                p.precio,
+                p.vigenciainicio,
+                p.vigenciafin,
+                p.tipo,
+                p.maximosusuarios
+             FROM promocion p               
+             WHERE p.idpromocion = ? AND p.eliminado = 0`,
+            [id]
+        );
 
-        consultarId: async (req, res) => {
-            const { id } = req.params;
+        if (promociones.length === 0) {
+            return res.status(404).json({ message: 'Promoción no encontrada' });
+        }
 
-            try {
+        const promocion = promociones[0];
 
-                const [promociones] = await connection.promise().query(
-                    `SELECT 
-                        p.idpromocion,
-                        p.empresa_idempresa,
-                        p.categoria_idcategoria,
-                        p.nombre,
-                        p.descripcion,
-                        p.precio,
-                        p.vigenciainicio,
-                        p.vigenciafin,
-                        p.tipo
-                     FROM promocion p               
-                     WHERE p.idpromocion = ? AND p.eliminado = 0`,
-                    [id]
-                );
+        const [imagenes] = await connection.promise().query(
+            'SELECT idimagen, url, public_id FROM imagen WHERE promocion_idpromocion = ?',
+            [id]
+        );
 
+        const [qrRows] = await connection.promise().query(
+            `SELECT token, usado 
+             FROM qr_promocion 
+             WHERE promocion_idpromocion = ?`,
+            [id]
+        );
 
-                if (promociones.length === 0) {
-                    return res.status(404).json({ message: 'Promoción no encontrada' });
-                }
+        const qrs = qrRows.map(qr => ({
+            token: qr.token,
+            url: `${process.env.URL_API}/api/promocion/reclamar/${qr.token}`,
+            usado: qr.usado === 1  
+        }));
 
-                const promocion = promociones[0];
+        const respuesta = {
+            ...promocion,
+            imagenes: imagenes.map(img => ({
+                id: img.idimagen,
+                url: img.url,
+                public_id: img.public_id
+            })),
+            qrs
+        };
 
-
-                const [imagenes] = await connection.promise().query(
-                    'SELECT idimagen, url, public_id FROM imagen WHERE promocion_idpromocion = ?',
-                    [id]
-                );
-
-
-                const respuesta = {
-                    ...promocion,
-                    imagenes: imagenes.map(img => ({
-                        id: img.idimagen,
-                        url: img.url,
-                        public_id: img.public_id
-                    }))
-                };
-
-                res.status(200).json(respuesta);
-            } catch (error) {
-                console.error('Error al consultar promoción:', error);
-                res.status(500).json({ message: 'Error al consultar promoción' });
-            }
-        },
+        res.status(200).json(respuesta);
+    } catch (error) {
+        console.error('Error al consultar promoción:', error);
+        res.status(500).json({ message: 'Error al consultar promoción' });
+    }
+},
 
  
 
@@ -822,51 +847,225 @@ if (promocion.idusuario !== req.usuario.idusuario) {
                 res.status(500).json({ message: 'Error al consultar promociones' });
             }
         },reclamarPromocion: async (req, res) => {
-  const { token } = req.params;
-  const { cliente_idcliente } = req.body; 
+  const { idpromocion } = req.body;
+  const idcliente = req.user?.idcliente || req.body.idcliente; // desde token o body
+
+  if (!idpromocion || !idcliente) {
+    return res.status(400).json({ message: 'Faltan parámetros: idpromocion o idcliente' });
+  }
+
+  const conn = await connection.promise().getConnection();
 
   try {
-   
-    const [qrRows] = await connection.promise().query(
-      'SELECT promocion_idpromocion FROM qr_promocion WHERE token = ?',
-      [token]
+    await conn.beginTransaction();
+
+    // 1. Validar que la promoción exista y esté vigente
+    const [promoRows] = await conn.query(
+      `SELECT idpromocion, maximosusuarios, vigenciainicio, vigenciafin
+       FROM promocion
+       WHERE idpromocion = ? AND eliminado = 0`,
+      [idpromocion]
     );
 
-    if (qrRows.length === 0) {
-      return res.status(404).json({ message: 'QR inválido o no encontrado' });
+    if (!promoRows.length) {
+      await conn.rollback();
+      conn.release();
+      return res.status(404).json({ message: 'Promoción no encontrada' });
     }
 
-    const promocionId = qrRows[0].promocion_idpromocion;
-
-   
-    const [yaReclamado] = await connection.promise().query(
-      'SELECT * FROM cliente_promocion WHERE cliente_idcliente = ? AND promocion_idpromocion = ?',
-      [cliente_idcliente, promocionId]
-    );
-
-    if (yaReclamado.length > 0) {
-      return res.status(400).json({ message: 'Esta promoción ya fue reclamada por este cliente' });
+    const promo = promoRows[0];
+    const now = new Date();
+    if (now < new Date(promo.vigenciainicio) || now > new Date(promo.vigenciafin)) {
+      await conn.rollback();
+      conn.release();
+      return res.status(400).json({ message: 'Promoción no vigente' });
     }
 
-    
-    await connection.promise().query(
-      'INSERT INTO cliente_promocion (cliente_idcliente, promocion_idpromocion, reclamado) VALUES (?, ?, 1)',
-      [cliente_idcliente, promocionId]
+    // 2. Verificar si ya reclamó la promoción
+    const [existente] = await conn.query(
+      `SELECT 1 FROM cliente_promocion 
+       WHERE cliente_idcliente = ? AND promocion_idpromocion = ?`,
+      [idcliente, idpromocion]
     );
-req.io.emit('promocionReclamada', {
-  cliente_idcliente,
-  promocionId,
-  token,
-  timestamp: Date.now()
-});
+    if (existente.length) {
+      await conn.rollback();
+      conn.release();
+      return res.status(400).json({ message: 'Ya reclamaste esta promoción' });
+    }
 
-    res.status(200).json({ message: 'Promoción reclamada exitosamente' });
+    // 3. Validar cupo disponible
+    const [reclamos] = await conn.query(
+      `SELECT COUNT(*) as total 
+       FROM cliente_promocion 
+       WHERE promocion_idpromocion = ?`,
+      [idpromocion]
+    );
+    if (reclamos[0].total >= promo.maximosusuarios) {
+      await conn.rollback();
+      conn.release();
+      return res.status(400).json({ message: 'Cupo de promoción agotado' });
+    }
+
+    // 4. Insertar en cliente_promocion
+    const [clientePromoRes] = await conn.query(
+      `INSERT INTO cliente_promocion (cliente_idcliente, promocion_idpromocion, fecha) 
+       VALUES (?, ?, NOW())`,
+      [idcliente, idpromocion]
+    );
+    const clientePromoId = clientePromoRes.insertId;
+
+    // 5. Generar token JWT único para el QR
+    const qrToken = jwt.sign(
+      { idcliente, idpromocion, clientePromoId },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' } // el QR expira en 7 días (ajustable)
+    );
+
+    const qrUrl = `${process.env.BASE_URL}/api/promocion/validar/${qrToken}`;
+
+    // 6. Generar imagen QR
+    const qrImage = await QRCode.toDataURL(qrUrl);
+
+    // 7. Guardar QR en tabla qr_promocion
+    await conn.query(
+      `INSERT INTO qr_promocion (cliente_promocion_id, token, url) 
+       VALUES (?, ?, ?)`,
+      [clientePromoId, qrToken, qrUrl]
+    );
+
+    await conn.commit();
+    conn.release();
+
+    // 8. Devolver QR al cliente
+    return res.status(201).json({
+      message: 'Promoción reclamada con éxito',
+      idpromocion,
+      idcliente,
+      qrUrl,
+      qrImage // base64 que puede mostrar en la app
+    });
 
   } catch (error) {
     console.error('Error al reclamar promoción:', error);
-    res.status(500).json({ message: 'Error al reclamar la promoción' });
+    await conn.rollback();
+    conn.release();
+    return res.status(500).json({ message: 'Error al reclamar promoción' });
+  }
+},validarQR: async (req, res) => {
+   let conn;
+  try {
+    conn = await connection.promise().getConnection();
+
+    // 🔑 Decodificar token recibido en la URL
+    const rawToken = req.params.token;
+    const token = decodeURIComponent(rawToken);
+
+    console.log("🔹 Token recibido (raw):", rawToken);
+    console.log("🔹 Token decodificado:", token);
+
+    // 1. Verificar JWT
+    let payload;
+    try {
+      payload = jwt.verify(token, process.env.JWT_QR_SECRET);
+      console.log("✅ Payload decodificado:", payload);
+    } catch (err) {
+      console.error("❌ Error al verificar JWT:", err.message);
+      return res.status(400).json({ message: "QR inválido o expirado" });
+    }
+
+    const { idcliente, idpromocion } = payload;
+
+    // 2. Buscar en la tabla qr_promocion
+    const [rows] = await conn.query(
+      `SELECT * 
+         FROM qr_promocion 
+        WHERE token = ? 
+          AND usado = 0 
+          AND fecha_expiracion > NOW()`,
+      [token]
+    );
+
+    console.log("🔍 Resultado DB:", rows);
+
+    if (!rows.length) {
+      return res.status(400).json({ message: "QR no válido" });
+    }
+
+    // 3. Si es válido, marcar como usado
+    await conn.query(
+      `UPDATE qr_promocion SET usado = 1 WHERE idqr_promocion = ?`,
+      [rows[0].idqr_promocion]
+    );
+
+    return res.status(200).json({
+      message: "QR validado exitosamente",
+      promocion: idpromocion,
+      cliente: idcliente,
+    });
+  } catch (error) {
+    console.error("Error en validarQR:", error);
+    return res.status(500).json({ message: "Error al validar QR" });
+  } finally {
+    if (conn) conn.release();
+  }
+},consultarReclamado: async (req, res) => {
+  try {
+    const { idCliente } = req.query; // ⚠️ importante: pasar el id del cliente desde la app
+
+    const [promociones] = await connection.promise().query(
+      `SELECT 
+         p.idpromocion,
+         p.empresa_idempresa,
+         p.tipopromocion_idtipopromocion,
+         p.nombre,
+         p.descripcion,
+         p.precio,
+         p.vigenciainicio,
+         p.vigenciafin,
+         p.tipo,
+         p.maximosusuarios,
+         -- este LEFT JOIN checa si el cliente ya reclamó
+         CASE WHEN cp.idcliente IS NULL THEN 0 ELSE 1 END AS reclamada
+       FROM promocion p
+       LEFT JOIN cliente_promocion cp 
+         ON cp.promocion_idpromocion = p.idpromocion
+        AND cp.idcliente = ?
+       WHERE p.eliminado = 0`,
+      [idCliente]
+    );
+
+    if (!promociones.length) {
+      return res.status(404).json({ message: 'No se encontraron promociones' });
+    }
+
+    // Aquí igual puedes traer imágenes/QRs como ya lo hacías
+    const results = await Promise.all(
+      promociones.map(async promocion => {
+        const [imagenes] = await connection.promise().query(
+          `SELECT idimagen, url, public_id 
+           FROM imagen 
+           WHERE promocion_idpromocion = ?`,
+          [promocion.idpromocion]
+        );
+
+        return {
+          ...promocion,
+          imagenes: imagenes.map(img => ({
+            id: img.idimagen,
+            url: img.url,
+            public_id: img.public_id
+          }))
+        };
+      })
+    );
+
+    return res.status(200).json(results);
+  } catch (error) {
+    console.error('Error al consultar promociones:', error);
+    return res.status(500).json({ message: 'Error al consultar promociones' });
   }
 }
+
 
 
 
