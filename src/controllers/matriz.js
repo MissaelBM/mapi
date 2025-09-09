@@ -30,7 +30,7 @@ module.exports = (connection) => {
       },
 
       crearmatriz: async (req, res) => {
-        const {usuario_idusuario, nombre, ubicacion, telefono, email,idcreador } = req.body;
+        const {usuario_idusuario, nombre, telefono, email,idcreador } = req.body;
     
         try {
 
@@ -42,13 +42,12 @@ module.exports = (connection) => {
         if (usuarioResult.length === 0) {
           return res.status(400).json({ message: 'El usuario especificado no existe' });
         }
-            const { lat, lng } = ubicacion;      
-            const pointWKT = `POINT(${lng} ${lat})`;
+            
     
       
             const [result] = await connection.promise().query(
-              'INSERT INTO matriz (usuario_idusuario, nombre, ubicacion, telefono, email, idcreador, fechacreacion, fechaactualizacion, eliminado) VALUES (?, ?, ST_GeomFromText(?), ?, ?, ?, ?, ?, ?)',
-              [usuario_idusuario, nombre, pointWKT, telefono,  email, idcreador, new Date(),null, 0]
+              'INSERT INTO matriz (usuario_idusuario, nombre, telefono, email, idcreador, fechacreacion, fechaactualizacion, eliminado) VALUES (?, ?, ST_GeomFromText(?), ?, ?, ?, ?, ?, ?)',
+              [usuario_idusuario, nombre,  telefono,  email, idcreador, new Date(),null, 0]
           );
     
             res.status(201).json({ message: 'Matriz de empresa registrada', idmatriz: result.insertId });
