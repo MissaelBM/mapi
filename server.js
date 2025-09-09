@@ -80,6 +80,7 @@ const tesoroRoutes = require('./src/routes/tesoro');
 const cliente_tesoroRoutes = require('./src/routes/cliente_tesoro');
 const productoRoutes = require('./src/routes/producto');
 const tipopromocionRoutes = require('./src/routes/tipopromocion');
+const usuario_empresa = require('./src/routes/usuario_empresa');
 
 app.use('/api', userRoutes(pool));
 app.use('/api', rolRoutes(pool));
@@ -102,6 +103,7 @@ app.use('/api', tesoroRoutes(pool));
 app.use('/api', cliente_tesoroRoutes(pool));
 app.use('/api', productoRoutes(pool));
 app.use('/api', tipopromocionRoutes(pool));
+app.use('/api', usuario_empresa(pool));
 
 
 server.listen(port, () => {
