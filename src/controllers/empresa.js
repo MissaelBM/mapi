@@ -28,7 +28,7 @@ module.exports = (connection) => {
       }
     },
     empresa: async (req, res) => {
-      const {matriz_idmatriz, nombre, descripcion, ubicacion } = req.body;
+      const {matriz_idmatriz, nombre, descripcion, ubicacion,principal } = req.body;
 
       try {
        
@@ -46,8 +46,8 @@ module.exports = (connection) => {
         const pointWKT = `POINT(${lng} ${lat})`;
 
         const [result] = await connection.promise().query(
-          'INSERT INTO empresa ( matriz_idmatriz, nombre, descripcion, ubicacion, eliminado) VALUES ( ?, ?, ?, ST_GeomFromText(?), ?)',
-          [matriz_idmatriz, nombre, descripcion, pointWKT, 0]
+          'INSERT INTO empresa ( matriz_idmatriz, nombre, descripcion, ubicacion, eliminado, principal) VALUES ( ?, ?, ?, ST_GeomFromText(?), ?, ?)',
+          [matriz_idmatriz, nombre, descripcion, pointWKT, 0, 0]
         );
 
         res.status(201).json({ message: 'Empresa registrada', rolId: result.insertId });
